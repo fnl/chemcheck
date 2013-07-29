@@ -13,9 +13,12 @@ A tool to ensure a CHEMDNER_ annotation file is syntactically correct::
 Requirements
 ------------
 
-To compile this library, glib and libcsv need to be installed and visible via
-pkg-config::
+To compile this library, glib (``apt-get install libglib2.0-dev``) and libcsv_
+need to be installed and visible via pkg-config::
 
+
+  export PKG_CONFIG_PATH=.
+  export LD_LIBRARY_PATH=/usr/local/lib
   make chemcheck
 
 Usage
@@ -48,3 +51,4 @@ printed to STDOUT; If not, a warning (or simple message in case of duplicates)
 is printed to STDERR and the annotation is not printed.
 
 .. _CHEMDNER: http://www.biocreative.org/tasks/biocreative-iv/chemdner/
+.. _libcsv: http://libcsv.sourceforge.net/
