@@ -144,15 +144,24 @@ check(citation *c) {
     offsets = c->aoffsets;
   }
 
+  /* illegal offsets */
+  if (c->start >= c->end)
+  {
+    g_warning(
+        "%c@%i:%i '%s' on %li is using illegal offsets",
+        c->section, c->start, c->end, c->quote, c->id
+    );
+    return false;
+  }
   /* trim whitespaces */
   for (i = c->start; i < c->end; i++)
   {
     idx = offsets[i];
     if (!isspace(text[idx])) break;
     g_debug(
-        "trimming whitespace prefix in %c %i:%i '%s' on %li at (%i->%i)",
+        "trimming whitespace prefix in %c@%i:%i '%s' on %li at (%i->%i)",
         c->section, c->start, c->end, c->quote, c->id, i, idx
-    ); 
+    );
   }
   // ALTER OFFSETS IF NECESSARY //
   c->start = i;
@@ -161,20 +170,21 @@ check(citation *c) {
     idx = offsets[i];
     if (!isspace(text[idx])) break;
     g_debug(
-        "trimming whitespace suffix in %c %i:%i '%s' on %li at (%i->%i)",
+        "trimming whitespace suffix in %c@%i:%i '%s' on %li at (%i->%i)",
         c->section, c->start, c->end, c->quote, c->id, i, idx
-    ); 
+    );
   }
   // ALTER OFFSETS IF NECESSARY //
   c->end = i + 1;
 
   /* compare length of annotation to length of quoted string */
-  tlen = c->end - c->start; 
+  tlen = c->end - c->start;
   if (qlen != tlen)
   {
+    text[offsets[c->end]] = 0;
     g_warning(
-        "%c %i:%i '%s' on %li length %i != %i ('%s')",
-        c->section, c->start, c->end, c->quote, c->id, qlen, tlen, text
+        "%c@%i:%i '%s' on %li length %i != %i ('%s')",
+        c->section, c->start, c->end, c->quote, c->id, qlen, tlen, text + offsets[c->start]
     );
     return false;
   }
@@ -185,9 +195,10 @@ check(citation *c) {
   for (i = 0; i < qlen; ++i)
   {
     if (quote[i] != text[idx + i]) {
+      text[idx+qlen] = 0;
       g_warning(
-          "%c %i:%i '%s' on %li mismatch at %i (0x%x != 0x%x)",
-          c->section, c->start, c->end, c->quote, c->id, i, quote[i], text[idx+i]
+          "%c@%i:%i '%s' on %li mismatch at %i in '%s' (0x%x:'%c' != 0x%x:'%c')",
+          c->section, c->start, c->end, c->quote, c->id, i, text + idx, quote[i], quote[i], text[idx+i], text[idx+i]
       );
       return false;
     }
@@ -199,13 +210,13 @@ check(citation *c) {
     offset *off = (offset*) item->data;
     if (off->section == c->section)
     {
-      g_debug("comparing %c %i:%i and %c %i:%i",
-          c->section, c->start, c->end, off->section, off->start, off->end 
+      g_debug("comparing %c@%i:%i and %c@%i:%i",
+          c->section, c->start, c->end, off->section, off->start, off->end
       );
       if (c->start == off->start && c->end == off->end)
       {
           g_message(
-              "skipping duplicate of %c %i:%i '%s' on %li",
+              "skipping duplicate of %c@%i:%i '%s' on %li",
               c->section, c->start, c->end, c->quote, c->id
           );
           return false;
@@ -213,24 +224,24 @@ check(citation *c) {
       else if (c->start <= off->start && c->end >= off->start)
       {
           g_warning(
-              "head of %c %i:%i '%s' on %li overlaps with %i:%i",
-              c->section, c->start, c->end, c->quote, c->id, off->start, off->end 
+              "head of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
       }
       else if (c->start <= off->end && c->end >= off->end)
       {
           g_warning(
-              "tail of %c %i:%i '%s' on %li overlaps with %i:%i",
-              c->section, c->start, c->end, c->quote, c->id, off->start, off->end 
+              "tail of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
       }
       else if (c->start >= off->start && c->end <= off->end)
       {
           g_warning(
-              "body of %c %i:%i '%s' on %li overlaps with %i:%i",
-              c->section, c->start, c->end, c->quote, c->id, off->start, off->end 
+              "body of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
       }
@@ -245,17 +256,19 @@ void
 annrow(int chr, void *data)
 {
   citation *c = (citation *) data;
-  g_debug("checking %c %i:%i '%s' on %li", c->section, c->start, c->end, c->quote, c->id);
+  g_debug("checking %c@%i:%i '%s' on %li", c->section, c->start, c->end, c->quote, c->id);
   if (check(c))
+  {
     printf(
         "%li\t%c\t%i\t%i\t%s\t%s\n",
         c->id, c->section, c->start, c->end, c->quote, c->class
     );
-  offset *off = (offset*) malloc(sizeof(offset));
-  off->section = c->section;
-  off->start = c->start;
-  off->end = c->end;
-  c->offset_list = g_slist_append(c->offset_list, off);
+    offset *off = (offset*) malloc(sizeof(offset));
+    off->section = c->section;
+    off->start = c->start;
+    off->end = c->end;
+    c->offset_list = g_slist_append(c->offset_list, off);
+  }
   free(c->quote);
   c->quote = NULL;
   free(c->class);
@@ -434,7 +447,9 @@ run(FILE *txt_file, FILE *ann_file)
   }
 
   csv_set_delim(&txt_parser, '\t');
+  csv_set_quote(&txt_parser, 0);
   csv_set_delim(&ann_parser, '\t');
+  csv_set_quote(&ann_parser, 0);
   c.ann_file = ann_file;
   c.ann_parser = &ann_parser;
 
@@ -447,8 +462,8 @@ run(FILE *txt_file, FILE *ann_file)
     }
   }
 
-  csv_fini(&txt_parser, txtcol, txtrow, &c); 
-  csv_fini(&ann_parser, anncol, annrow, &c); 
+  csv_fini(&txt_parser, txtcol, txtrow, &c);
+  csv_fini(&ann_parser, anncol, annrow, &c);
   csv_free(&txt_parser);
   csv_free(&ann_parser);
   return EXIT_SUCCESS;
@@ -460,7 +475,7 @@ main(int argc, char **argv)
   int verbosity = 1;
   int show_help = 0;
   int c;
-  
+
   /* default logging: silence */
   g_log_set_default_handler(silent_handler, NULL);
 
@@ -507,7 +522,7 @@ main(int argc, char **argv)
     g_critical("could not read annotation file '%s'", argv[optind+1]);
     exit(EXIT_FAILURE);
   }
- 
+
   /* RUN PROGRAM */
   int exit_val = run(text_file, ann_file);
 
