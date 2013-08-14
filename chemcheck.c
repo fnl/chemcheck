@@ -230,7 +230,7 @@ check(citation *c) {
           );
           return false;
       }
-      else if (c->start <= off->end && c->end >= off->end)
+      else if (c->start <= off->end && c->end >= off->end && c->start != off->end)
       {
           g_warning(
               "tail of %c@%i:%i '%s' on %li overlaps with %i:%i",
