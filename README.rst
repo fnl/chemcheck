@@ -21,6 +21,9 @@ need to be installed and visible via pkg-config::
   export LD_LIBRARY_PATH=/usr/local/lib
   make chemcheck
 
+Note that if libcsv_ is not installed in the standard location at
+``/usr/local`` you need to adapt the ``libcsv-3.0.pc`` file.
+
 Usage
 -----
 
