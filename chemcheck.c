@@ -69,7 +69,7 @@ typedef struct
 typedef struct
 {
   bool flag;
-  long id;
+  char *id;
   char *title;
   int *toffsets;
   char *abstract;
@@ -87,7 +87,7 @@ typedef struct
 
 /** Calculate the number of characters in a UTF-8 string. */
 int
-utf8strlen(char* utf8)
+utf8strlen(const char* utf8)
 {
   int i = -1, j = 0;
   while (utf8[++i])
@@ -97,7 +97,7 @@ utf8strlen(char* utf8)
 
 /** Create a byte-offset array for each character in a UTF-8 string. */
 int*
-utf8offsets(char* utf8)
+utf8offsets(const char* utf8)
 {
   int *offsets = malloc(sizeof(int) * (utf8strlen(utf8) + 1));
   int i = -1, j = 0;
@@ -105,6 +105,15 @@ utf8offsets(char* utf8)
     if ((utf8[i] & 0xC0) != 0x80) offsets[j++] = i;
   offsets[j] = i;
   return offsets;
+}
+
+/** Check if str starts with prefix. */
+bool
+startsWith(const char* str, const char* prefix)
+{
+	size_t lenpre = strlen(prefix);
+	size_t lenstr = strlen(str);
+	return lenstr < lenpre ? false : strncmp(prefix, str, lenpre) == 0;
 }
 
 /** Trim leading and trailing spaces "in place". */
@@ -149,7 +158,7 @@ check(citation *c) {
   if (c->start >= c->end)
   {
     g_warning(
-        "%c@%i:%i '%s' on %li is using illegal offsets",
+        "%c@%i:%i '%s' on %s is using illegal offsets",
         c->section, c->start, c->end, c->quote, c->id
     );
     return false;
@@ -160,7 +169,7 @@ check(citation *c) {
     idx = offsets[i];
     if (!isspace(text[idx])) break;
     g_debug(
-        "trimming whitespace prefix in %c@%i:%i '%s' on %li at (%i->%i)",
+        "trimming whitespace prefix in %c@%i:%i '%s' on %s at (%i->%i)",
         c->section, c->start, c->end, c->quote, c->id, i, idx
     );
   }
@@ -171,7 +180,7 @@ check(citation *c) {
     idx = offsets[i];
     if (!isspace(text[idx])) break;
     g_debug(
-        "trimming whitespace suffix in %c@%i:%i '%s' on %li at (%i->%i)",
+        "trimming whitespace suffix in %c@%i:%i '%s' on %s at (%i->%i)",
         c->section, c->start, c->end, c->quote, c->id, i, idx
     );
   }
@@ -184,7 +193,7 @@ check(citation *c) {
   {
     text[offsets[c->end]] = 0;
     g_warning(
-        "%c@%i:%i '%s' on %li length %i != %i ('%s')",
+        "%c@%i:%i '%s' on %s length %i != %i ('%s')",
         c->section, c->start, c->end, c->quote, c->id, qlen, tlen, text + offsets[c->start]
     );
     return false;
@@ -198,7 +207,7 @@ check(citation *c) {
     if (quote[i] != text[idx + i]) {
       text[idx+qlen] = 0;
       g_warning(
-          "%c@%i:%i '%s' on %li mismatch at %i in '%s' (0x%x:'%c' != 0x%x:'%c')",
+          "%c@%i:%i '%s' on %s mismatch at %i in '%s' (0x%x:'%c' != 0x%x:'%c')",
           c->section, c->start, c->end, c->quote, c->id, i, text + idx, quote[i], quote[i], text[idx+i], text[idx+i]
       );
       return false;
@@ -217,7 +226,7 @@ check(citation *c) {
       if (c->start == off->start && c->end == off->end)
       {
           g_message(
-              "skipping duplicate of %c@%i:%i '%s' on %li",
+              "skipping duplicate of %c@%i:%i '%s' on %s",
               c->section, c->start, c->end, c->quote, c->id
           );
           return false;
@@ -225,7 +234,7 @@ check(citation *c) {
       else if (c->start <= off->start && c->end >= off->start)
       {
           g_warning(
-              "head of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              "head of %c@%i:%i '%s' on %s overlaps with %i:%i",
               c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
@@ -233,7 +242,7 @@ check(citation *c) {
       else if (c->start <= off->end && c->end >= off->end && c->start != off->end)
       {
           g_warning(
-              "tail of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              "tail of %c@%i:%i '%s' on %s overlaps with %i:%i",
               c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
@@ -241,7 +250,7 @@ check(citation *c) {
       else if (c->start >= off->start && c->end <= off->end)
       {
           g_warning(
-              "body of %c@%i:%i '%s' on %li overlaps with %i:%i",
+              "body of %c@%i:%i '%s' on %s overlaps with %i:%i",
               c->section, c->start, c->end, c->quote, c->id, off->start, off->end
           );
           return false;
@@ -257,11 +266,11 @@ void
 annrow(int chr, void *data)
 {
   citation *c = (citation *) data;
-  g_debug("checking %c@%i:%i '%s' on %li", c->section, c->start, c->end, c->quote, c->id);
+  g_debug("checking %c@%i:%i '%s' on %s", c->section, c->start, c->end, c->quote, c->id);
   if (check(c))
   {
     printf(
-        "%li\t%c\t%i\t%i\t%s\t%s\n",
+        "%s\t%c\t%i\t%i\t%s\t%s\n",
         c->id, c->section, c->start, c->end, c->quote, c->class
     );
     offset *off = (offset*) malloc(sizeof(offset));
@@ -287,9 +296,9 @@ anncol(void *val, size_t len, void *data)
 
   string[len] = 0;
   strncpy(string, val, len);
-  //g_debug("anncol %li '%s'", c->id, string);
+  //g_debug("anncol %s '%s'", c->id, string);
 
-  if (atol(string) == c->id)
+  if (string == c->id)
   {
     //g_debug("parsing annotation for %s", string);
   }
@@ -303,7 +312,7 @@ anncol(void *val, size_t len, void *data)
     }
     else
     {
-      g_error("illegal section '%s' for %li", string, c->id);
+      g_error("illegal section '%s' for %s", string, c->id);
     }
     free(string);
   }
@@ -352,27 +361,28 @@ txtcol(void *val, size_t len, void *data)
   if (!c->flag)
   {
     c->flag = true;
-    c->id = 0L;
+    if (c->id)
+			free(c->id);
+    c->id = NULL;
     if (c->title)
       free(c->title);
+    c->title = NULL;
     if (c->toffsets)
       free(c->toffsets);
-    c->title = NULL;
     c->toffsets = NULL;
     if (c->abstract)
       free(c->abstract);
+    c->abstract = NULL;
     if (c->aoffsets)
       free(c->aoffsets);
-    c->abstract = NULL;
     c->aoffsets = NULL;
     c->start = -1;
     c->end = -1;
   }
-  if (!c->id) {
-    c->id = atol(string);
-    if (c->id == 0L)
-      g_critical("could not parse id '%s'", string);
-    free(string);
+  if (c->id == NULL) {
+    c->id = string;
+    if (c->id == NULL)
+      g_critical("id not found in '%s'", string);
   }
   else if (!c->title)
   {
@@ -408,7 +418,7 @@ txtrow(int chr, void *data)
   c->aoffsets = utf8offsets(c->abstract);
   c->toffsets = utf8offsets(c->title);
 
-  while (bytes != -1 && line && atol(line) == c->id) {
+  while (bytes != -1 && line && startsWith(line, c->id)) {
     if (csv_parse(c->ann_parser, line, bytes, anncol, annrow, c) != bytes) {
       g_critical("parsing annotation CSV: %s", csv_strerror(csv_error(c->ann_parser)));
       csv_free(c->ann_parser);
@@ -419,7 +429,7 @@ txtrow(int chr, void *data)
   }
   c->ann_line = line;
   g_debug("storing annotion '%s'", line);
-  g_debug("checked %i annotations for %li", g_slist_length(c->offset_list), c->id);
+  g_debug("checked %i annotations for %s", g_slist_length(c->offset_list), c->id);
   g_slist_free_full(c->offset_list, &free);
   c->flag = false;
 }
