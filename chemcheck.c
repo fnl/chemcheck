@@ -298,9 +298,9 @@ anncol(void *val, size_t len, void *data)
   strncpy(string, val, len);
   //g_debug("anncol %s '%s'", c->id, string);
 
-  if (string == c->id)
+  if (startsWith(string, c->id))
   {
-    //g_debug("parsing annotation for %s", string);
+    g_debug("parsing annotation for %s", string);
   }
   else if (!c->section)
   {
@@ -312,7 +312,7 @@ anncol(void *val, size_t len, void *data)
     }
     else
     {
-      g_error("illegal section '%s' for %s", string, c->id);
+      g_error("illegal section '%s' for '%s'", string, c->id);
     }
     free(string);
   }
@@ -380,7 +380,7 @@ txtcol(void *val, size_t len, void *data)
     c->end = -1;
   }
   if (c->id == NULL) {
-    c->id = string;
+    c->id = trim(string);
     if (c->id == NULL)
       g_critical("id not found in '%s'", string);
   }
